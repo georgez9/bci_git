@@ -5,9 +5,15 @@ from multiprocessing import Process, Manager, Queue
 import numpy as np
 from analysis import baseline_shift, filtered, show_psd, clc_power
 import datetime
+from sklearn import preprocessing  # scale and center data
+from sklearn.svm import SVC
+from joblib import load
+import pandas as pd
 
 my_global_fig, my_psd_fig = init_figs()
 realtime_flag = False
+clf_svm = load('svm_model.joblib')
+scaler = load('scaler.joblib')
 
 # Dash display
 app = Dash(__name__)
@@ -87,9 +93,25 @@ app.layout = html.Div([
                     html.Br(),
                     html.Label('0', id='abs-power'),
                     html.Div(id='file-info', children='')
-                ], style={'padding-top': '20px', 'padding-left': '50px'})
-            ], className='dash-board-frame')
-        ], className='dash-board')
+                ], className='dash-board-text'),
+            ], className='dash-board-frame'),
+        ], className='dash-board'),
+        html.Div([
+            html.Div([
+                html.Div([
+                    html.Div([
+                        html.Div(className='circle'),
+                        html.Label(['Stop'], style={'padding-top': '30px'}),
+                        html.Div(className='circle', style={'background-color': '#003300'}),
+                        html.Label(['Move'], style={'padding-top': '30px'}),
+                    ], className='circle-container'),
+
+                    html.Div([
+                        html.Div(className='rectangle') for _ in range(8)
+                    ], className='rectangle-container')
+                ], className='container_light')
+            ], className='dash-board-frame', style={'width': '80%'})
+        ], style={'width': '20%', 'margin-left': '100px'}),
     ], style={'display': 'flex'})
 ])
 
@@ -125,21 +147,22 @@ def update_model(value, value1):
     Output('file-info', 'children'),
     Input('start-stop-button', 'n_clicks'),
     Input('exit-button', 'n_clicks'),
+    Input('select-model', 'value'),
 )
-def button_clicked(start_stop_clicks, exit_clicks):
+def button_clicked(start_stop_clicks, exit_clicks, value):
     file_name = f"datas.txt"
-    if not exit_clicks > 0:
-        if start_stop_clicks > 0:
-            if start_stop_clicks % 2 == 0:
-                q.put('1')  # stop
-            else:
-                current_time = datetime.datetime.now().strftime("datas_%Y-%m-%d_%H-%M-%S")
-                file_name = f"{current_time}.txt"
-                q.put('0')  # start
-    else:
-        q.put('2')
-        tcp_processing.join()
-
+    if value == "Real-Time":
+        if not exit_clicks > 0:
+            if start_stop_clicks > 0:
+                if start_stop_clicks % 2 == 0:
+                    q.put('1')  # stop
+                else:
+                    current_time = datetime.datetime.now().strftime("datas_%Y-%m-%d_%H-%M-%S")
+                    file_name = f"{current_time}.txt"
+                    q.put('0')  # start
+        else:
+            q.put('2')
+            tcp_processing.join()
     return start_stop_clicks, exit_clicks, file_name
 
 
@@ -198,11 +221,25 @@ def update_metrics(value, n, file_info):
 
         abs_power = [power_delta, power_theta, power_alpha, power_beta, power_gamma]
         my_psd_fig.update_traces(y=abs_power)
-        abs_power = f'{abs_power[0]},\t{abs_power[1]},\t{abs_power[2]},\t{abs_power[3]},\t{abs_power[4]}\n'
-        file_name = file_info.split()[-1]
-        with open(file_name, "a") as file:
-            if not file_name == 'datas.txt':
-                file.write(abs_power)
+
+        # Convert test data to DataFrame with appropriate feature names
+        test_a_df = pd.DataFrame([abs_power], columns=["Delta", "Theta", "Alpha", "Beta", "Gamma"])
+
+        # Preprocess the new data using the loaded scaler
+        test_a_scaled = scaler.transform(test_a_df)
+
+        # Make a prediction using the loaded model
+        prediction = clf_svm.predict(test_a_scaled)
+        abs_power = prediction
+
+        # abs_power = f'{abs_power[0]},\t{abs_power[1]},\t{abs_power[2]},\t{abs_power[3]},\t{abs_power[4]}\n'
+        #
+        # # File writing
+        # file_name = file_info.split()[-1]
+        # with open(file_name, "a") as file:
+        #     if not file_name == 'datas.txt':
+        #         file.write(abs_power)
+
     else:
         abs_power = 0
     return my_global_fig, my_psd_fig, abs_power
