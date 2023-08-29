@@ -1,3 +1,5 @@
+import socket
+
 from dash import Dash, dcc, html, Input, Output, callback, State
 from figures import init_figs
 from tcp_server import tcp_client_processing
@@ -100,9 +102,9 @@ app.layout = html.Div([
             html.Div([
                 html.Div([
                     html.Div([
-                        html.Div(className='circle'),
+                        html.Div(className='circle', id='stop-id'),
                         html.Label(['Stop'], style={'padding-top': '30px'}),
-                        html.Div(className='circle', style={'background-color': '#003300'}),
+                        html.Div(className='circle', style={'background-color': '#003300'}, id='move-id'),
                         html.Label(['Move'], style={'padding-top': '30px'}),
                     ], className='circle-container'),
 
@@ -170,6 +172,8 @@ def button_clicked(start_stop_clicks, exit_clicks, value):
     Output('sample-graph', 'figure'),
     Output('psd-graph', 'figure'),
     Output('abs-power', 'children'),
+    Output('stop-id', 'style'),
+    Output('move-id', 'style'),
     Input('select-model', 'value'),
     Input('interval-component', 'n_intervals'),
     State('file-info', 'children'),
@@ -234,7 +238,15 @@ def update_metrics(value, n, file_info):
 
         # Make a prediction using the loaded model
         prediction = clf_svm.predict(test_a_scaled)
-        abs_power = f'{prediction},{start_time},{end_time}'
+        show_abs = f'{prediction[0]},{abs_power}'
+
+        q1.put(prediction[0])
+        if prediction[0] == '1':
+            style_stop = {'background-color': '#FF0000'}
+            style_start = {'background-color': '#003300'}
+        else:
+            style_stop = {'background-color': '#660000'}
+            style_start = {'background-color': '#00CC00'}
 
         # abs_power = f'{abs_power[0]},\t{abs_power[1]},\t{abs_power[2]},\t{abs_power[3]},\t{abs_power[4]}\n'
         #
@@ -245,17 +257,48 @@ def update_metrics(value, n, file_info):
         #         file.write(abs_power)
 
     else:
-        abs_power = 0
-    return my_global_fig, my_psd_fig, abs_power
+        show_abs = 0
+        style_stop = {}
+        style_start = {}
+    return my_global_fig, my_psd_fig, show_abs, style_stop, style_start
+
+
+def create_server(q1):
+    # 创建一个 TCP/IP socket
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    # 绑定端口
+    server_address = ('192.168.134.50', 12345)  # 请根据实际情况更改 IP 地址和端口号
+    server_socket.bind(server_address)
+
+    # 监听端口
+    server_socket.listen(1)
+
+    print(f"服务器在 {server_address} 上等待连接...")
+
+    # 等待客户端连接
+    connection, client_address = server_socket.accept()
+
+    while True:
+        user_action = str(q1.get())
+        if user_action == '1':
+            connection.sendall(b'm\n')
+        elif user_action == '0':
+            connection.sendall(b'm\n')
+        else:
+            pass
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+    key = 0
     # shared variables between dash app and tcp/ip server
     with Manager() as manager:
         d = Manager().list()  # raw datas
         q = Queue()  # control signal
+        q1 = Queue()
     tcp_processing = Process(target=tcp_client_processing, args=(d, q))
+    # buggy_processing = Process(target=create_server, args=(q1,))
     # dash app run
     app.run(debug=True)
 
