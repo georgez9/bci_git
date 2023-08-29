@@ -132,7 +132,7 @@ def update_model(value, value1):
         # processing for tcp/ip function
         tcp_processing.start()
         return {'background-color': 'white', 'color': 'black'}, {'background-color': '#163a6c', 'color': 'white'}, \
-            [8, 9], False
+            [9, 10], False
     if value == "File":
         if realtime_flag:
             realtime_flag = False
@@ -175,8 +175,8 @@ def button_clicked(start_stop_clicks, exit_clicks, value):
     State('file-info', 'children'),
 )
 def update_metrics(value, n, file_info):
-    if value == "Real-Time":
-        data_list = list(d)
+    data_list = list(d)
+    if value == "Real-Time" and data_list:
         array_length = 10000
         my_global_fig.update_traces(
             x=np.linspace(0, 11, array_length),
@@ -190,7 +190,11 @@ def update_metrics(value, n, file_info):
         freq_low_alpha, freq_high_alpha = 8, 14
         freq_low_beta, freq_high_beta = 14, 30
         freq_low_gamma, freq_high_gamma = 30, 100
-        bs_data = baseline_shift(data_list, t_start=8, t_end=9)
+        start_time = len(data_list) // 1000 - 1
+        end_time = len(data_list) // 1000
+        if start_time < 0:
+            start_time = 0
+        bs_data = baseline_shift(data_list, t_start=start_time, t_end=end_time)
         # filter_data = filtered(bs_data, f1=3, f2=30, sr=psd_sr)
         # psd_data = show_psd(filter_data, welch_tw=welch_tw, sr=psd_sr)
         # my_psd_fig.update_traces(
@@ -230,7 +234,7 @@ def update_metrics(value, n, file_info):
 
         # Make a prediction using the loaded model
         prediction = clf_svm.predict(test_a_scaled)
-        abs_power = prediction
+        abs_power = f'{prediction},{start_time},{end_time}'
 
         # abs_power = f'{abs_power[0]},\t{abs_power[1]},\t{abs_power[2]},\t{abs_power[3]},\t{abs_power[4]}\n'
         #

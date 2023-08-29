@@ -49,48 +49,6 @@ def clc_power(freq_axis, power_spect, freq_low=8, freq_high=12):
 
 
 def bandpass(s, f1, f2, order=2, fs=1000.0, use_filtfilt=False):
-    """
-        -----
-        Brief
-        -----
-        For a given signal s passes the frequencies within a certain range (between f1 and f2) and rejects (attenuates)
-        the frequencies outside that range by applying a Butterworth digital filter.
-
-        -----------
-        Description
-        -----------
-        Signals may have frequency components of multiple bands. If our interest is to have an idea about the behaviour
-        of a specific frequency band, we should apply a band pass filter, which would attenuate all the remaining
-        frequencies of the signal. The degree of attenuation is controlled by the parameter "order", that as it
-        increases, allows to better attenuate frequencies closer to the cutoff frequency. Notwithstanding, the higher
-        the order, the higher the computational complexity and the higher the instability of the filter that may
-        compromise the results.
-
-        This function allows to apply a band pass Butterworth digital filter and returns the filtered signal.
-
-        ----------
-        Parameters
-        ----------
-        s: array-like
-            signal
-        f1: int
-            the lower cutoff frequency
-        f2: int
-            the upper cutoff frequency
-        order: int
-            Butterworth filter order
-        fs: float
-            sampling frequency
-        use_filtfilt: boolean
-            If True, the signal will be filtered once forward and then backwards. The result will have zero phase and
-            twice the order chosen.
-
-        Returns
-        -------
-        signal: array-like
-            filtered signal
-
-        """
     [b, a] = butter(Wn=[f1 * 2 / fs, f2 * 2 / fs], btype='bandpass', N=order, output='ba')
 
     if use_filtfilt:

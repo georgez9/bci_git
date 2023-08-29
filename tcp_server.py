@@ -47,12 +47,22 @@ class TCPClient(object):
                 else:
                     message = json.loads(message)
                     message = message["returnData"]
-                    for device in message.keys():
-                        for data_list in message[device]:
-                            number = data_list[-1]  # this is the data we collected
-                            self.myDeque.append(number)
-                            d[:] = self.myDeque  # add datas to the shared queue
-                            # print(number)  # Print the number
+                    # for device in message.keys():
+                    #     for data_list in message[device]:
+                    #         number = data_list[-1]  # this is the data we collected
+                    #         self.myDeque.append(number)
+                    #         d[:] = self.myDeque  # add datas to the shared queue
+                    #         # print(number)  # Print the number
+
+                    try:
+                        for device in message.keys():
+                            for data_list in message[device]:
+                                number = data_list[-1]  # this is the data we collected
+                                self.myDeque.append(number)
+                                d[:] = self.myDeque  # add datas to the shared queue
+                                # print(number)  # Print the number
+                    except AttributeError as e:
+                        print(f"Error: {e}. Message content: {message}")
 
             for _ in writable:
                 try:
