@@ -274,8 +274,6 @@ def create_server(q1):
 
     server_socket.listen(1)
 
-    print(f"服务器在 {server_address} 上等待连接...")
-
     connection, client_address = server_socket.accept()
 
     while True:
