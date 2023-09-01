@@ -1,4 +1,5 @@
 import socket
+import time
 
 from dash import Dash, dcc, html, Input, Output, callback, State
 from figures import init_figs
@@ -132,12 +133,14 @@ def update_model(value, value1):
     if value == "Real-Time":
         realtime_flag = True
         # processing for tcp/ip function
+        buggy_processing.start()
         tcp_processing.start()
         return {'background-color': 'white', 'color': 'black'}, {'background-color': '#163a6c', 'color': 'white'}, \
             [9, 10], False
     if value == "File":
         if realtime_flag:
             realtime_flag = False
+            buggy_processing.join()
             tcp_processing.join()
         return {'background-color': '#163a6c', 'color': 'white'}, {'background-color': 'white', 'color': 'black'}, \
             value1, True
@@ -238,10 +241,10 @@ def update_metrics(value, n, file_info):
 
         # Make a prediction using the loaded model
         prediction = clf_svm.predict(test_a_scaled)
-        show_abs = f'{prediction[0]},{abs_power}'
+        show_abs = f'{prediction[0]},{type(prediction[0])},{abs_power}'
 
-        q1.put(prediction[0])
-        if prediction[0] == '1':
+        q1.put(str(prediction[0]))
+        if str(prediction[0]) == '1':
             style_stop = {'background-color': '#FF0000'}
             style_start = {'background-color': '#003300'}
         else:
@@ -258,25 +261,21 @@ def update_metrics(value, n, file_info):
 
     else:
         show_abs = 0
-        style_stop = {}
-        style_start = {}
+        style_stop = {'background-color': '#660000'}
+        style_start = {'background-color': '#003300'}
     return my_global_fig, my_psd_fig, show_abs, style_stop, style_start
 
 
 def create_server(q1):
-    # 创建一个 TCP/IP socket
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    # 绑定端口
-    server_address = ('192.168.134.50', 12345)  # 请根据实际情况更改 IP 地址和端口号
+    server_address = ('192.168.134.50', 12345)
     server_socket.bind(server_address)
 
-    # 监听端口
     server_socket.listen(1)
 
     print(f"服务器在 {server_address} 上等待连接...")
 
-    # 等待客户端连接
     connection, client_address = server_socket.accept()
 
     while True:
@@ -287,6 +286,12 @@ def create_server(q1):
             connection.sendall(b'm\n')
         else:
             pass
+    # while True:
+    #     connection.sendall(b'm\n')
+    #     time.sleep(1)
+    #
+    #     connection.sendall(b's\n')
+    #     time.sleep(1)
 
 
 # Press the green button in the gutter to run the script.
@@ -298,7 +303,7 @@ if __name__ == '__main__':
         q = Queue()  # control signal
         q1 = Queue()
     tcp_processing = Process(target=tcp_client_processing, args=(d, q))
-    # buggy_processing = Process(target=create_server, args=(q1,))
+    buggy_processing = Process(target=create_server, args=(q1,))
     # dash app run
     app.run(debug=True)
 
